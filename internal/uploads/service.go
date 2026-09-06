@@ -92,6 +92,13 @@ func (s *Service) CreateUpload(ctx context.Context, ownerSubject, parentID, file
 		return nil, ErrQuotaExceeded
 	}
 
+	disk, err := storage.GetDiskSpace(s.storage.BaseDir())
+	if err == nil && disk.FreeBytes > 0 {
+		if int64(disk.FreeBytes)-expectedSize < s.cfg.MinFreeBytes {
+			return nil, ErrPhysicalSpaceBlocked
+		}
+	}
+
 	uploadID := uuid.New().String()
 	stagingKey := s.storage.GenerateOpaqueKey()
 	finalStorageKey := s.storage.GenerateOpaqueKey()

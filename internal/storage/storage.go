@@ -42,6 +42,10 @@ func NewStorage(baseDir string) (*Storage, error) {
 	}, nil
 }
 
+func (s *Storage) BaseDir() string {
+	return s.baseDir
+}
+
 func (s *Storage) GenerateOpaqueKey() string {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
