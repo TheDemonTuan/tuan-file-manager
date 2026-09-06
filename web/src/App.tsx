@@ -3,7 +3,7 @@ import {
   Folder, File, Trash2, HardDrive, Search, Plus,
   Download, RefreshCw, Share2, Shield, Lock
 } from 'lucide-react';
-import { Node, StorageMetrics } from './types.ts';
+import { Node, StorageMetrics, User } from './types.ts';
 import { formatBytes, formatDate } from './utils.ts';
 import { UploadQueue, UploadItem } from './components/UploadQueue.tsx';
 import { ShareModal } from './components/ShareModal.tsx';
@@ -11,6 +11,7 @@ import * as tus from 'tus-js-client';
 
 export const App: React.FC = () => {
   // Navigation & state
+  const [user, setUser] = useState<User | null>(null);
   const [currentFolderId, setCurrentFolderId] = useState<string>('ROOT');
   const [folderHistory, setFolderHistory] = useState<{ id: string; name: string }[]>([
     { id: 'ROOT', name: 'Root' },
@@ -73,6 +74,15 @@ export const App: React.FC = () => {
       console.error(e);
     }
   };
+
+  useEffect(() => {
+    fetch('/api/v1/me')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data) setUser(data);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (view === 'files') {
@@ -235,30 +245,110 @@ export const App: React.FC = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '1rem',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Folder size={24} color="var(--primary)" />
           <h1 style={{ fontSize: '1.25rem', fontWeight: 600 }}>File Manager</h1>
           <span style={{ fontSize: '0.75rem', background: 'rgba(59, 130, 246, 0.2)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>
-            VPS + Cloudflare
+            v2.1-prod
           </span>
         </div>
 
-        {storage && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-              <HardDrive size={16} />
-              <span>{formatBytes(storage.total_used_bytes)} / {formatBytes(storage.max_storage_bytes)}</span>
-            </div>
-            <div style={{ width: '100px', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{
-                width: `${Math.min(100, Math.round((storage.total_used_bytes / storage.max_storage_bytes) * 100))}%`,
-                height: '100%',
-                background: 'var(--primary)',
-              }} />
-            </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+          {/* Security Posture Status */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.25rem 0.75rem',
+            borderRadius: '9999px',
+            backgroundColor: 'rgba(6, 78, 59, 0.4)',
+            border: '1px solid rgba(6, 95, 70, 0.6)',
+            color: '#34d399',
+            fontSize: '0.75rem',
+            fontWeight: 500,
+          }}>
+            <Shield size={14} color="#34d399" />
+            <span>Zero Public Ports</span>
+            <span style={{ opacity: 0.5 }}>•</span>
+            <span>CF Tunnel</span>
           </div>
-        )}
+
+          {/* Storage Meter */}
+          {storage && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <HardDrive size={15} />
+                <span>{formatBytes(storage.total_used_bytes)} / {formatBytes(storage.max_storage_bytes)}</span>
+              </div>
+              <div style={{ width: '80px', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${Math.min(100, Math.round((storage.total_used_bytes / storage.max_storage_bytes) * 100))}%`,
+                  height: '100%',
+                  background: 'var(--primary)',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Cloudflare Access User Identity & Avatar */}
+          {user ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              paddingLeft: '1rem',
+              borderLeft: '1px solid var(--border)',
+            }}>
+              <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {user.email}
+                </span>
+                <span style={{ fontSize: '0.675rem', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                  <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                  Cloudflare Authenticated
+                </span>
+              </div>
+
+              <span style={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                textTransform: 'uppercase',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                color: '#10b981',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+              }}>
+                {user.role}
+              </span>
+
+              {/* User Avatar Circle */}
+              <div style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '0.875rem',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                userSelect: 'none',
+              }}>
+                {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+              </div>
+            </div>
+          ) : (
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Authenticating...</div>
+          )}
+        </div>
       </header>
 
       {/* Main Layout */}

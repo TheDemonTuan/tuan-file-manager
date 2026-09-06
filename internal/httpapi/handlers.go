@@ -101,7 +101,12 @@ func (a *API) HandleHealthReady(w http.ResponseWriter, r *http.Request) {
 // Admin /api/v1/me
 func (a *API) HandleGetMe(w http.ResponseWriter, r *http.Request) {
 	_, identity := a.getContextActor(r)
-	WriteJSON(w, http.StatusOK, map[string]string{"identity": identity})
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"identity":  identity,
+		"email":     identity,
+		"role":      "admin",
+		"auth_type": "cloudflare_access",
+	})
 }
 
 // Admin /api/v1/nodes

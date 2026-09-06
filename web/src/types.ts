@@ -1,3 +1,10 @@
+export interface User {
+  identity: string;
+  email: string;
+  role: string;
+  auth_type: string;
+}
+
 export interface FileObject {
   node_id: string;
   storage_key: string;
