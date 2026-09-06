@@ -21,7 +21,7 @@ permissions:
   packages: write
 
 env:
-  GO_VERSION: "1.24.x"
+  GO_VERSION: "1.27.x"
   NODE_VERSION: "22"
 
 jobs:
@@ -30,23 +30,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: web/package-lock.json
-      - name: Verify Go
-        run: |
-          go test -v ./...
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
       - name: Verify Frontend
         working-directory: web
         run: |
           npm ci
           npm run build
+      - name: Verify Go
+        run: |
+          go test -v ./...
 
   images:
     name: Build Image → GHCR

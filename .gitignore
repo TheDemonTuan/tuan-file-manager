@@ -15,7 +15,8 @@ data/
 
 # Node / Frontend
 web/node_modules/
-web/dist/
+web/dist/*
+!web/dist/index.html
 
 # Logs & temp
 *.log
