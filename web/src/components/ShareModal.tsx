@@ -42,7 +42,7 @@ export const ShareModal: React.FC<Props> = ({ nodeId, nodeName, onClose }) => {
 
   const getShareUrl = () => {
     if (!createdResult) return '';
-    return `${window.location.origin}/s/${createdResult.token}`;
+    return createdResult.share_url || `${window.location.origin}/s/${createdResult.token}`;
   };
 
   const handleCopy = () => {

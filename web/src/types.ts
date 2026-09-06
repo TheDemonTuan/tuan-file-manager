@@ -60,6 +60,7 @@ export interface Share {
 export interface CreateShareResult {
   share: Share;
   token: string;
+  share_url?: string;
 }
 
 export interface PublicShareView {

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -493,6 +494,16 @@ func (a *API) HandleCreateShare(w http.ResponseWriter, r *http.Request) {
 		WriteProblem(w, r, http.StatusBadRequest, "Create Share Failed", err.Error())
 		a.auditSvc.Record(r.Context(), reqID, actor, "share.create", "share", "", "error", ip, nil)
 		return
+	}
+
+	if a.cfg.AppShareHost != "" {
+		res.ShareURL = fmt.Sprintf("https://%s/s/%s", a.cfg.AppShareHost, res.Token)
+	} else {
+		scheme := "https"
+		if r.TLS == nil && r.Header.Get("X-Forwarded-Proto") != "https" {
+			scheme = "http"
+		}
+		res.ShareURL = fmt.Sprintf("%s://%s/s/%s", scheme, r.Host, res.Token)
 	}
 
 	a.auditSvc.Record(r.Context(), reqID, actor, "share.create", "share", res.Share.ID, "success", ip, map[string]any{

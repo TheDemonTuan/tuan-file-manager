@@ -34,8 +34,9 @@ type Share struct {
 }
 
 type CreateShareResult struct {
-	Share *Share `json:"share"`
-	Token string `json:"token"` // Plaintext token returned exactly once
+	Share    *Share `json:"share"`
+	Token    string `json:"token"` // Plaintext token returned exactly once
+	ShareURL string `json:"share_url,omitempty"`
 }
 
 type PublicShareView struct {
