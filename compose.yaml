@@ -1,0 +1,62 @@
+name: filemgr
+
+services:
+  app:
+    image: ${FILEMGR_IMAGE:-filemgr:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - type: bind
+        source: ${FILEMGR_DATA_DIR:-./data}
+        target: /data
+    ports:
+      - "${FILEMGR_BIND_ADDR:-127.0.0.1:8080}:8080"
+    healthcheck:
+      test: ["CMD", "/app/filemgr", "healthcheck", "--url", "http://127.0.0.1:8080/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    stop_grace_period: 60s
+    pids_limit: 256
+    env_file:
+      - .env
+    networks:
+      - filemgr_net
+
+  backup:
+    image: restic/restic:0.17.3
+    profiles:
+      - ops
+    user: "0:0"
+    volumes:
+      - type: bind
+        source: ${FILEMGR_DATA_DIR:-./data}
+        target: /data
+      - type: bind
+        source: ./scripts
+        target: /scripts
+        read_only: true
+    environment:
+      - RESTIC_REPOSITORY=${RESTIC_REPOSITORY}
+      - RESTIC_PASSWORD=${RESTIC_PASSWORD}
+      - AWS_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+    entrypoint: ["/bin/sh", "/scripts/backup.sh"]
+    networks:
+      - filemgr_net
+
+networks:
+  filemgr_net:
+    driver: bridge

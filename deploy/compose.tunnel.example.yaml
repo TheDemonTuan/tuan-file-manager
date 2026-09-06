@@ -1,0 +1,44 @@
+# Optional: Standalone Docker Compose stack including cloudflared tunnel
+name: filemgr-tunnel
+
+services:
+  app:
+    image: ${FILEMGR_IMAGE:-filemgr:latest}
+    restart: unless-stopped
+    init: true
+    user: "10001:10001"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - type: bind
+        source: ${FILEMGR_DATA_DIR:-/srv/filemgr/data}
+        target: /data
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "/app/filemgr", "healthcheck", "--url", "http://127.0.0.1:8080/health/live"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    env_file:
+      - .env
+    networks:
+      - edge_net
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - edge_net
+
+networks:
+  edge_net:
+    driver: bridge

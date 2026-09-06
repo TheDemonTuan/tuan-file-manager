@@ -1,0 +1,13 @@
+[Unit]
+Description=File Manager Off-site Backup to Cloudflare R2
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/filemgr
+ExecStart=/usr/bin/docker compose --profile ops run --rm backup
+TimeoutSec=1800
+
+[Install]
+WantedBy=multi-user.target

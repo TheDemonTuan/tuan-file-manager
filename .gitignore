@@ -1,0 +1,22 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+filemgr
+
+# Data & Test Database
+/data
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Node / Frontend
+web/node_modules/
+web/dist/
+
+# Logs & temp
+*.log
+tmp/

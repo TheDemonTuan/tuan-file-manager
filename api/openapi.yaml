@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: Self-hosted File Manager API
+  description: API specification for production self-hosted file manager with Cloudflare Zero Trust.
+  version: 1.0.0
+paths:
+  /api/v1/me:
+    get:
+      summary: Current authenticated identity
+      responses:
+        '200':
+          description: Identity details
+  /api/v1/nodes:
+    get:
+      summary: List nodes with cursor pagination
+      parameters:
+        - name: parent_id
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of nodes with next cursor
+  /api/v1/folders:
+    post:
+      summary: Create a new folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                parent_id:
+                  type: string
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Created folder node
+  /api/v1/nodes/{id}:
+    patch:
+      summary: Rename node
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Renamed node
+  /api/v1/nodes/{id}/move:
+    post:
+      summary: Move node to another folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                new_parent_id:
+                  type: string
+      responses:
+        '200':
+          description: Moved node
+  /api/v1/nodes/{id}/trash:
+    post:
+      summary: Move node to trash
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node trashed
+  /api/v1/trash:
+    get:
+      summary: List items in trash
+      responses:
+        '200':
+          description: Trashed nodes
+  /api/v1/trash/{id}/restore:
+    post:
+      summary: Restore node from trash
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node restored
+  /api/v1/trash/{id}:
+    delete:
+      summary: Permanently purge node
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Node permanently purged
+  /api/v1/files/{id}/download:
+    get:
+      summary: Download file with Range support
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Full file content
+        '206':
+          description: Partial file content (Range)
+  /api/v1/files/{id}/backup-selection:
+    put:
+      summary: Toggle backup inclusion for file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [selected]
+              properties:
+                selected:
+                  type: boolean
+      responses:
+        '200':
+          description: Updated backup selection
+  /api/v1/uploads:
+    post:
+      summary: Create upload reservation
+      responses:
+        '201':
+          description: Upload session created
+  /api/v1/uploads/tus:
+    options:
+      summary: Discover tus protocol capabilities
+      responses:
+        '204':
+          description: Tus options
+    post:
+      summary: Create tus upload
+      responses:
+        '201':
+          description: Upload created
+  /api/v1/uploads/tus/{id}:
+    head:
+      summary: Get upload offset
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Upload offset
+    patch:
+      summary: Stream upload chunk
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Chunk received
+    delete:
+      summary: Terminate upload
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Terminated
+  /api/v1/shares:
+    get:
+      summary: List shares
+      responses:
+        '200':
+          description: Active shares
+    post:
+      summary: Create share link
+      responses:
+        '201':
+          description: Share created with token
+  /api/v1/shares/{id}:
+    patch:
+      summary: Update share (expiry, password)
+      responses:
+        '200':
+          description: Updated
+    delete:
+      summary: Revoke share
+      responses:
+        '204':
+          description: Revoked
+  /api/v1/system/storage:
+    get:
+      summary: Storage metrics and capacity
+      responses:
+        '200':
+          description: Storage summary
+  /api/v1/system/backup:
+    get:
+      summary: Backup run status
+      responses:
+        '200':
+          description: Backup status
+  /s/{token}:
+    get:
+      summary: Public share landing / metadata
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public share details
+  /s/{token}/unlock:
+    post:
+      summary: Unlock password-protected share
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cookie set
+  /s/{token}/nodes:
+    get:
+      summary: List nodes within shared folder
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node list
+  /s/{token}/files/{node_id}/download:
+    get:
+      summary: Download file from public share
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: node_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: File content
