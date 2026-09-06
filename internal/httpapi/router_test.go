@@ -199,8 +199,9 @@ func TestCompleteAPIFlow(t *testing.T) {
 		t.Fatalf("expected token in create share result")
 	}
 
-	// 8. Public Share: GET /s/{token}
-	req = httptest.NewRequest("GET", "/s/"+token, nil)
+	// 8. Public Share: GET /s/{token}/meta
+	req = httptest.NewRequest("GET", "/s/"+token+"/meta", nil)
+	req.Header.Set("Accept", "application/json")
 	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {

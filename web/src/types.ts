@@ -40,6 +40,9 @@ export interface StorageMetrics {
   reserved_bytes: number;
   total_used_bytes: number;
   max_storage_bytes: number;
+  disk_total_bytes?: number;
+  disk_free_bytes?: number;
+  disk_used_bytes?: number;
   node_count: number;
 }
 
@@ -61,6 +64,7 @@ export interface CreateShareResult {
 
 export interface PublicShareView {
   id: string;
+  target_node_id: string;
   target_name: string;
   target_kind: string;
   size_bytes: number;

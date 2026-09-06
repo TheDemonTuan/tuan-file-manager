@@ -528,11 +528,20 @@ func (a *API) HandleSystemStorage(w http.ResponseWriter, r *http.Request) {
 	var nodeCount int
 	_ = a.db.QueryRowContext(r.Context(), "SELECT COUNT(1) FROM nodes WHERE trashed_at IS NULL;").Scan(&nodeCount)
 
+	disk, _ := storage.GetDiskSpace(a.cfg.DataDir)
+	diskTotal := disk.TotalBytes
+	if diskTotal == 0 {
+		diskTotal = uint64(a.cfg.MaxStorageBytes)
+	}
+
 	WriteJSON(w, http.StatusOK, map[string]any{
 		"stored_bytes":      storedBytes,
 		"reserved_bytes":    reservedBytes,
 		"total_used_bytes":  storedBytes + reservedBytes,
-		"max_storage_bytes": a.cfg.MaxStorageBytes,
+		"max_storage_bytes": diskTotal,
+		"disk_total_bytes":  diskTotal,
+		"disk_free_bytes":   disk.FreeBytes,
+		"disk_used_bytes":   disk.UsedBytes,
 		"node_count":        nodeCount,
 	})
 }
@@ -557,6 +566,7 @@ func (a *API) HandlePublicShareGet(w http.ResponseWriter, r *http.Request, token
 
 	view := shares.PublicShareView{
 		ID:           share.ID,
+		TargetNodeID: share.TargetNodeID,
 		TargetName:   share.TargetNode.Name,
 		TargetKind:   string(share.TargetNode.Kind),
 		NeedPassword: share.HasPassword,

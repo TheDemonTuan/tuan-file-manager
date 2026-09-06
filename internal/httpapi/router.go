@@ -9,6 +9,32 @@ import (
 )
 
 func (a *API) Handler(staticFS fs.FS) http.Handler {
+	// Static file handler for embedded UI
+	var staticServer http.Handler
+	if staticFS != nil {
+		fileServer := http.FileServer(http.FS(staticFS))
+		staticServer = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			path := strings.TrimPrefix(r.URL.Path, "/")
+			if path == "" {
+				path = "index.html"
+			}
+			f, err := staticFS.Open(path)
+			if err == nil {
+				_ = f.Close()
+				fileServer.ServeHTTP(w, r)
+				return
+			}
+			// SPA fallback to index.html
+			r.URL.Path = "/"
+			fileServer.ServeHTTP(w, r)
+		})
+	} else {
+		staticServer = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write([]byte(`<!DOCTYPE html><html><head><title>File Manager</title></head><body><h1>Self-hosted File Manager</h1><p>Backend API operational.</p></body></html>`))
+		})
+	}
+
 	mux := http.NewServeMux()
 
 	// 1. Health checks (always open)
@@ -16,9 +42,17 @@ func (a *API) Handler(staticFS fs.FS) http.Handler {
 	mux.HandleFunc("GET /health/ready", a.HandleHealthReady)
 
 	// 2. Public share endpoints (/s/{token}*)
-	mux.HandleFunc("GET /s/{token}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /s/{token}/meta", func(w http.ResponseWriter, r *http.Request) {
 		token := r.PathValue("token")
 		a.HandlePublicShareGet(w, r, token)
+	})
+	mux.HandleFunc("GET /s/{token}", func(w http.ResponseWriter, r *http.Request) {
+		token := r.PathValue("token")
+		if strings.Contains(r.Header.Get("Accept"), "application/json") || r.URL.Query().Get("format") == "json" {
+			a.HandlePublicShareGet(w, r, token)
+			return
+		}
+		staticServer.ServeHTTP(w, r)
 	})
 	mux.HandleFunc("POST /s/{token}/unlock", func(w http.ResponseWriter, r *http.Request) {
 		token := r.PathValue("token")
@@ -85,32 +119,6 @@ func (a *API) Handler(staticFS fs.FS) http.Handler {
 
 	protectedAdmin := a.authVerifier.Middleware(adminMux)
 
-	// Static file handler for embedded UI
-	var staticServer http.Handler
-	if staticFS != nil {
-		fileServer := http.FileServer(http.FS(staticFS))
-		staticServer = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			path := strings.TrimPrefix(r.URL.Path, "/")
-			if path == "" {
-				path = "index.html"
-			}
-			f, err := staticFS.Open(path)
-			if err == nil {
-				_ = f.Close()
-				fileServer.ServeHTTP(w, r)
-				return
-			}
-			// SPA fallback to index.html
-			r.URL.Path = "/"
-			fileServer.ServeHTTP(w, r)
-		})
-	} else {
-		staticServer = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Write([]byte(`<!DOCTYPE html><html><head><title>File Manager</title></head><body><h1>Self-hosted File Manager</h1><p>Backend API operational.</p></body></html>`))
-		})
-	}
-
 	// Host routing & security middleware
 	rootHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := r.Host
@@ -136,7 +144,15 @@ func (a *API) Handler(staticFS fs.FS) http.Handler {
 
 		// If accessed via share host: allow ONLY /s/*, /health/*, and static share UI
 		if a.cfg.AppEnv == "production" && host == shareHost {
-			if strings.HasPrefix(r.URL.Path, "/s/") || strings.HasPrefix(r.URL.Path, "/health/") {
+			if strings.HasPrefix(r.URL.Path, "/s/") {
+				if r.Method == http.MethodGet && !strings.HasSuffix(r.URL.Path, "/meta") && !strings.Contains(r.URL.Path, "/download") && !strings.HasSuffix(r.URL.Path, "/nodes") && !strings.Contains(r.Header.Get("Accept"), "application/json") {
+					staticServer.ServeHTTP(w, r)
+					return
+				}
+				mux.ServeHTTP(w, r)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/health/") {
 				mux.ServeHTTP(w, r)
 				return
 			}
@@ -168,7 +184,15 @@ func (a *API) Handler(staticFS fs.FS) http.Handler {
 		}
 
 		// Route /health/* or /s/*
-		if strings.HasPrefix(r.URL.Path, "/health/") || strings.HasPrefix(r.URL.Path, "/s/") {
+		if strings.HasPrefix(r.URL.Path, "/s/") {
+			if r.Method == http.MethodGet && !strings.HasSuffix(r.URL.Path, "/meta") && !strings.Contains(r.URL.Path, "/download") && !strings.HasSuffix(r.URL.Path, "/nodes") && !strings.Contains(r.Header.Get("Accept"), "application/json") {
+				staticServer.ServeHTTP(w, r)
+				return
+			}
+			mux.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/health/") {
 			mux.ServeHTTP(w, r)
 			return
 		}

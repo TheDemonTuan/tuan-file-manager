@@ -40,6 +40,7 @@ type CreateShareResult struct {
 
 type PublicShareView struct {
 	ID           string      `json:"id"`
+	TargetNodeID string      `json:"target_node_id"`
 	TargetName   string      `json:"target_name"`
 	TargetKind   string      `json:"target_kind"`
 	SizeBytes    int64       `json:"size_bytes"`

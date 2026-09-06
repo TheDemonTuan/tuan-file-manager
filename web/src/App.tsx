@@ -281,11 +281,18 @@ export const App: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                 <HardDrive size={15} />
-                <span>{formatBytes(storage.total_used_bytes)} / {formatBytes(storage.max_storage_bytes)}</span>
+                <span>
+                  {formatBytes(storage.total_used_bytes)} / {formatBytes(storage.disk_total_bytes || storage.max_storage_bytes)}
+                </span>
+                {storage.disk_free_bytes ? (
+                  <span style={{ fontSize: '0.75rem', color: '#10b981', marginLeft: '2px' }}>
+                    ({formatBytes(storage.disk_free_bytes)} free)
+                  </span>
+                ) : null}
               </div>
               <div style={{ width: '80px', height: '6px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
                 <div style={{
-                  width: `${Math.min(100, Math.round((storage.total_used_bytes / storage.max_storage_bytes) * 100))}%`,
+                  width: `${Math.min(100, Math.max(2, Math.round((storage.total_used_bytes / (storage.disk_total_bytes || storage.max_storage_bytes || 1)) * 100)))}%`,
                   height: '100%',
                   background: 'var(--primary)',
                 }} />
@@ -646,6 +653,7 @@ export const App: React.FC = () => {
 const PublicShareViewComponent: React.FC = () => {
   const token = window.location.pathname.replace('/s/', '').split('/')[0];
   const [shareData, setShareData] = useState<any>(null);
+  const [folderNodes, setFolderNodes] = useState<any[]>([]);
   const [password, setPassword] = useState('');
   const [unlocked, setUnlocked] = useState(false);
   const [error, setError] = useState('');
@@ -653,7 +661,9 @@ const PublicShareViewComponent: React.FC = () => {
 
   const loadShare = async () => {
     try {
-      const res = await fetch(`/s/${token}`);
+      const res = await fetch(`/s/${token}/meta`, {
+        headers: { 'Accept': 'application/json' },
+      });
       if (!res.ok) throw new Error('Share link expired or invalid');
       const data = await res.json();
       setShareData(data);
@@ -668,6 +678,17 @@ const PublicShareViewComponent: React.FC = () => {
   useEffect(() => {
     loadShare();
   }, [token]);
+
+  useEffect(() => {
+    if (shareData?.target_kind === 'folder' && (unlocked || !shareData.need_password)) {
+      fetch(`/s/${token}/nodes`, { headers: { 'Accept': 'application/json' } })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.items) setFolderNodes(data.items);
+        })
+        .catch(() => {});
+    }
+  }, [shareData, unlocked, token]);
 
   const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -705,9 +726,11 @@ const PublicShareViewComponent: React.FC = () => {
     );
   }
 
+  const fileNodeId = shareData?.target_node?.id || shareData?.target_node_id;
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div className="card" style={{ width: '100%', maxWidth: '480px', padding: '2rem' }}>
+      <div className="card" style={{ width: '100%', maxWidth: '520px', padding: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
           <Shield size={28} color="var(--primary)" />
           <div>
@@ -736,7 +759,7 @@ const PublicShareViewComponent: React.FC = () => {
               autoFocus
             />
             <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-              Unlock File
+              Unlock Content
             </button>
           </form>
         ) : (
@@ -751,22 +774,60 @@ const PublicShareViewComponent: React.FC = () => {
               gap: '1rem',
             }}>
               {shareData.target_kind === 'folder' ? <Folder size={36} color="var(--primary)" /> : <File size={36} color="var(--primary)" />}
-              <div>
-                <h3 style={{ fontSize: '1rem', fontWeight: 600, wordBreak: 'break-all' }}>{shareData.target_name}</h3>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, wordBreak: 'break-all' }}>{shareData.target_name}</h3>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   {shareData.size_bytes > 0 ? formatBytes(shareData.size_bytes) : 'Folder'}
                 </p>
               </div>
             </div>
 
-            {shareData.target_kind === 'file' && (
+            {shareData.target_kind === 'file' ? (
               <a
-                href={`/s/${token}/files/${shareData.target_node?.id}/download`}
+                href={`/s/${token}/files/${fileNodeId}/download`}
                 className="btn btn-primary"
-                style={{ width: '100%', justifyContent: 'center', padding: '0.75rem' }}
+                style={{ width: '100%', justifyContent: 'center', padding: '0.75rem', fontSize: '1rem' }}
               >
                 <Download size={18} /> Download File
               </a>
+            ) : (
+              <div>
+                <h4 style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>Files inside folder:</h4>
+                {folderNodes.length === 0 ? (
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Folder is empty</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
+                    {folderNodes.map(fn => (
+                      <div key={fn.id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        background: 'var(--bg-main)',
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        border: '1px solid var(--border)',
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', overflow: 'hidden' }}>
+                          <File size={16} color="var(--text-secondary)" />
+                          <span style={{ fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
+                            {fn.name}
+                          </span>
+                        </div>
+                        {fn.kind === 'file' && (
+                          <a
+                            href={`/s/${token}/files/${fn.id}/download`}
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 6px' }}
+                            title="Download"
+                          >
+                            <Download size={14} />
+                          </a>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
