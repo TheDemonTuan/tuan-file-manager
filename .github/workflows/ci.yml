@@ -1,0 +1,59 @@
+name: Pull request CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Frontend and Go verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Typecheck and build frontend assets
+        working-directory: web
+        run: npm run build
+      - name: Test Go packages with built frontend assets
+        run: go test -race ./...
+      - name: Build production server with embedded frontend
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+        run: go build -trimpath -ldflags='-s -w' -o "$RUNNER_TEMP/filemgr" ./cmd/server
+
+  required:
+    name: Required CI
+    if: ${{ always() }}
+    needs: [verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require successful verification
+        env:
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          printf 'Frontend and Go verification: %s\n' "$VERIFY_RESULT"
+          test "$VERIFY_RESULT" = success
