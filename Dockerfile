@@ -24,7 +24,7 @@ COPY --from=frontend-builder /build/web/dist ./web/dist
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /app/filemgr ./cmd/server
 
 # Stage 3: Minimal Production Non-Root Runtime
-FROM alpine:3.21
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -g 10001 -S appgroup \
